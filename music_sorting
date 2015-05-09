@@ -1,0 +1,263 @@
+import os
+from mutagen.mp3 import MP3
+import mutagen.id3
+from mutagen.easyid3 import EasyID3
+global illegel_letter
+illegel_letter = ('\\', '/', ':', '*', '?', '<', '>', '|')
+
+
+def hello():
+    print('-' * 74)
+    s = '''
+    #####################################################################
+    #       这个脚本是用来整理你的音乐文件夹的，它可以将你的音乐        #
+    #          按照"歌手\专辑\歌曲"的形式整理到各自的文件夹中           #
+    #                                                                   #
+    #---    ----    ----    ----    ----    ----    ----    ----    ----#
+    #               **注：程序只处理MP3文件, 其他忽略**                 #
+    #####################################################################
+        '''
+    print(s)
+    print('-' * 74)
+    d = '''
+        输入 s 开始整理; 输入 q 退出
+        '''
+    print(d)
+
+
+def is_mp3(mp3):
+	'''判断是否为MP3文件
+	'''
+    m = mp3.split('.')
+    if m[-1] == 'mp3':
+        return True
+    else:
+        return False
+
+
+def get_album(id3info):
+	'''获取MP3的专辑信息
+	'''
+    if 'album' not in id3info:
+        album = 'unknown album'
+    else:
+        album = id3info['album'][0]
+    return album
+
+
+def get_artist(id3info):
+	'''获取MP3文件的歌手信息
+	'''
+    if 'artist' not in id3info:
+        artist = 'unknown artist'
+    else:
+        artist = id3info['artist'][0]
+    return artist
+
+
+def check_name(filename):
+    '''检查文件夹的名字是否合法
+       Check if directory is legal
+    '''
+    s = ''
+
+    # 去除文件名结尾的'.'
+    length = len(filename)
+    while filename[length-1] == '.':
+        length = length - 1        
+
+    # 除去文件名中非法字符
+    for i in range(length):
+        if filename[i] not in illegel_letter:
+            s += filename[i]
+    return s
+
+
+def get_music_dirc():
+    s = '''
+        请输在下面输入你的音乐文件夹的位置
+        例如 ：(不区分大小写)
+        E:\\Users\\Music
+        C:\\SomeWhere\\MyMusicFile
+        D:\\kuwodownload
+        '''
+    print(s)
+
+    T = 1
+    while  T:
+        music_dir = input('音乐文件夹所在位置：>>> ')
+        if os.path.isdir(music_dir):
+            return music_dir
+            T = 0
+        else:
+            print('你输入的路径不存在，请重新输入')
+    return music_dir
+
+
+def clear_empty(music_dir):
+    print('***开始清理空文件夹***')
+
+    # 重新扫描路径
+    results = os.walk(music_dir)
+
+    # 如果为空文件夹则删除
+    for root, dirc, filename in results:
+        if (len(dirc)==0) & (len(filename)==0):
+            try:
+                os.rmdir(root)
+                print('已清除>>> %s' %root )
+            except:
+                print('T_T 未能清除空文件夹')
+                return
+    print('***   CLEAR OK  ***')
+    print('\n')
+
+
+def echo_list(u=[]):
+    '''输出列表中的每一项
+    '''
+    print('***  start  ***')
+    for i in range(len(u)):
+        for j in range(len(u[i])):
+                print(u[i][j])
+        print('-' * 70)
+
+
+def echo_info(h):
+    '''通过询问用户意愿输出详细信息
+    '''
+    print('是否逐条查看详细信息？ <输入 y 查看, 输入 n 过>')
+
+    T = 1
+    while T:
+        YesOrNo = input('y / n ?>>> ')
+        if YesOrNo == 'y':
+            for j in range(len(h)):
+                print('%s info:' % h[j])
+                echo_list(u[j])
+                print('\n')
+
+            T = 0
+        elif YesOrNo == 'n':
+            print('未查看详细信息')
+            T = 0
+        else:
+            print('有效命令为：y / n')
+
+
+def change_dirc(src, dst):
+    '''把文件从 源路径(src) 移动到 目标路径(dst)
+    '''
+
+    # 拆分路径和文件名
+    split_src = os.path.split(src)[0]
+    name = os.path.split(src)[-1]
+
+    # 如果两路径相同则输出“位置正确” 
+    if src == dst:
+        k = os.path.split(dst)
+        return '未移动文件: ', (k[-1], k[0])
+
+    # 如果源路径和目标路径不同, 则进行如下操作
+    else:
+        try:
+            os.rename(src, dst)
+            return '已移动文件: ', (src, dst)
+        except FileExistsError as e:
+            return '重复文件: ', (src, dst)
+
+
+def start(results):
+
+    # 声明变量
+    # 用来统计MP3文件数量和保存处理时的信息
+    __total__ = 0
+    SameFile = []
+    MovedFile = []
+    UnMovedFile = []
+
+    # 处理这个目录下的每个文件
+    for root, dirc, files in results:
+
+    	# 对每个文件：
+        for filename in files:
+
+            # 如果是MP3文件，则：
+            if is_mp3(filename):
+
+                # 获取这个MP3文件的当前路径
+                m_dirc = os.path.join(root, filename)
+
+                # 获取MP3文件的 id3 信息
+                id3info = MP3(m_dirc, ID3=EasyID3)
+
+                # 从 id3 信息中取得歌手和专辑，并检查是否为合法文件名
+                artist = check_name(get_artist(id3info))
+                album = check_name(get_album(id3info))
+
+                # 目标文件路径
+                new_dirc = os.path.join(music_dir, artist, album, filename)
+
+                # 改变文件路劲
+                h, r = change_dirc(m_dirc, new_dirc)
+                if h == '未移动文件: ':
+                    UnMovedFile.append(r)
+                elif h == '已移动文件: ':
+                    MovedFile.append(r)
+                else:
+                    SameFile.append(r)
+
+                # 统计MP3文件数目
+                __total__ = __total__ + 1
+
+    print('-- mission completed --')
+    print("total: %d of songs" % __total__)
+    return ['同名', '已移动', '未移动'], [SameFile, MovedFile,UnMovedFile]
+
+
+if __name__ == '__main__':
+
+    __author__ = 'ven'
+
+    # 输出欢迎信息及提示 
+    hello()
+
+    # 主循环 
+    T = 1
+    while T:
+        user_input = input('s / q ?>>> ')
+
+        if user_input == 's':
+            music_dir = get_music_dirc()
+
+            # 遍历用户给出的目录
+            try:
+                results = os.walk(music_dir)
+                print(':) 成功遍历当前目录')
+            except:
+                print(':( 未能遍历当前目录')
+
+            # 处理每个MP3文件
+            h, u = start(results)
+
+            # 输出统计信息
+            print('\n')
+            for i in range(len(u)):
+                print('%s: %s' % (h[i], len(u[i])))
+                print('-' * 70)
+
+            # 输出详细信息
+            print('\n')
+            echo_info(h)
+
+            # 清楚空文件夹
+            print('\n')
+            clear_empty(music_dir)
+
+            T = 0
+        elif user_input == 'q':
+            T = 0
+        else:
+            print('未知指令，请重新输入')
+
+    input('现在任务已经完成了，按Enter键退出')
